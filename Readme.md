@@ -1,6 +1,49 @@
-# AWS Lambda Function with EF and Repository Pattern
+# AWS Lambda Function with Repository Pattern and EF Core
 
-## Setup
+Demonstrates how to create a Lambda Function that uses the repository pattern with Entity Framework Core.
+
+## Prerequisites
+
+- .NET Core SDK
+    - https://dotnet.microsoft.com/download/archives
+    - Select version matching what is supported by AWS Lambda.
+
+## Create Database
+
+1. Set connection string in appsettings.json.
+    - This should point to an [AWS RDS instance](https://aws.amazon.com/rds/) which you have previously created.
+    - Specify appropriate user id and password (or retrieve from [AWS Secrets Manager](https://aws.amazon.com/blogs/security/rotate-amazon-rds-database-credentials-automatically-with-aws-secrets-manager/)).
+
+1. Set environment for creating database.
+    - For Development:
+    ```
+    set ASPNETCORE_ENVIRONMENT=Development
+    ```
+
+    - For Prodution:
+    ```
+    set ASPNETCORE_ENVIRONMENT=Production
+    ```
+
+1. Change to directory where `SampleDbContextFactory` is located.
+
+    ```
+    cd NetCoreLambda.EF.Design
+    ```
+
+1. Create and seed database.
+
+    ```
+    dotnet ef database update
+    ```
+
+## Run the sample
+
+- Press F5 to run **Mock Lambda Test Tool**.
+    - Enter 1 for input.
+    - Response should be JSON for a Product from the database.
+
+## Setup Steps
 
 1. Add a **NetCoreLambda.Abstractions** .NET Standard Class Library project to the solution
     - Add a `Product` class.
@@ -13,7 +56,7 @@
     }
     ```
 
-1. Add a **NetCoreLambda.EF** .NET Core Class Library version 2.1.
+1. Add a **NetCoreLambda.EF** .NET Standard 2.0 Class Library.
     - Add a `SampleDbContext` class
 
     ```csharp
@@ -36,6 +79,50 @@
     }
     ```
 
+1. Add a **NetCoreLambda.DI** .NET Standard 2.0 Class Library.
+    - Add a `DependencyResolver` class.
+
+    ```csharp
+    public class DependencyResolver
+    {
+        public IServiceProvider ServiceProvider { get; }
+        public string CurrentDirectory { get; set; }
+
+        public DependencyResolver()
+        {
+            // Set up Dependency Injection
+            var serviceCollection = new ServiceCollection();
+            ConfigureServices(serviceCollection);
+            ServiceProvider = serviceCollection.BuildServiceProvider();
+        }
+
+        private void ConfigureServices(IServiceCollection services)
+        {
+            // Register env and config services
+            services.AddTransient<IEnvironmentService, EnvironmentService>();
+            services.AddTransient<IConfigurationService, ConfigurationService>
+                (provider => new ConfigurationService(provider.GetService<IEnvironmentService>())
+                {
+                    CurrentDirectory = CurrentDirectory
+                });
+
+            // Register DbContext class
+            services.AddTransient(provider =>
+            {
+                var configService = provider.GetService<IConfigurationService>();
+                var connectionString = configService.GetConfiguration()[$"ConnectionStrings:{nameof(SampleDbContext)}"];
+                var optionsBuilder = new DbContextOptionsBuilder<SampleDbContext>();
+                optionsBuilder.UseSqlServer(connectionString, builder => builder.MigrationsAssembly("NetCoreLambda.EF.Design"));
+                return new SampleDbContext(optionsBuilder.Options);
+            });
+
+            // Register repository
+            services.AddTransient<IProductRepository, ProductRepository>();
+        }
+    }
+    ```
+
+1. Add a **NetCoreLambda.EF.Design** .NET Core Class Library version 2.1.
     - Add a `SampleDbContextFactory` class.
 
     ```csharp
@@ -43,10 +130,12 @@
     {
         public SampleDbContext CreateDbContext(string[] args)
         {
-            var optionsBuilder = new DbContextOptionsBuilder<SampleDbContext>();
-            optionsBuilder.UseSqlServer(
-                @"Data Source=(localdb)\MsSqlLocalDb;initial catalog=SampleDb;Integrated Security=True; MultipleActiveResultSets=True");
-            return new SampleDbContext(optionsBuilder.Options);
+            // Get DbContext from DI system
+            var resolver = new DependencyResolver
+            {
+                CurrentDirectory = Path.Combine(Directory.GetCurrentDirectory(), "../NetCoreLambda")
+            };
+            return resolver.ServiceProvider.GetService(typeof(SampleDbContext)) as SampleDbContext;
         }
     }
     ```
@@ -70,11 +159,18 @@
     }
     ```
 
-1. Add a connection string to **appsettings.json** in the NetCore=Lambda project.
+1. Add a connection string to **appsettings.Development.json** in the NetCore=Lambda project.
 
     ```json
     "ConnectionStrings": {
         "SampleDbContext": "Data Source=(localdb)\\MsSqlLocalDb;initial catalog=SampleDb;Integrated Security=True; MultipleActiveResultSets=True"
+    }
+    ```
+
+1. Add a connection string to **appsettings.json** in the NetCore=Lambda project.
+
+    ```json
+    "SampleDbContext": "Data Source=sample-instance.xxx.eu-west-1.rds.amazonaws.com;initial catalog=SampleDb;User Id=admin;Password=Pa$$w0rd; MultipleActiveResultSets=True"
     }
     ```
 
@@ -86,13 +182,9 @@
 
     public Function()
     {
-        // Set up Dependency Injection
-        var serviceCollection = new ServiceCollection();
-        ConfigureServices(serviceCollection);
-        var serviceProvider = serviceCollection.BuildServiceProvider();
-
         // Get Configuration Service from DI system
-        ProductRepository = serviceProvider.GetService<IProductRepository>();
+        var resolver = new DependencyResolver();
+        ProductRepository = resolver.GetService<IProductRepository>();
     }
 
     // Use this ctor from unit tests that can mock IProductRepository
@@ -102,31 +194,7 @@
     }
     ```
 
-1. Add a ``ConfigureServices` method to the `Function` class.
-
-    ```csharp
-    private void ConfigureServices(IServiceCollection serviceCollection)
-    {
-        // Register env and config services
-        serviceCollection.AddTransient<IEnvironmentService, EnvironmentService>();
-        serviceCollection.AddTransient<IConfigurationService, ConfigurationService>();
-
-        // Register DbContext class
-        serviceCollection.AddTransient(provider =>
-        {
-            var configService = provider.GetService<IConfigurationService>();
-            var connectionString = configService.GetConfiguration()[$"ConnectionStrings:{nameof(SampleDbContext)}"];
-            var optionsBuilder = new DbContextOptionsBuilder<SampleDbContext>();
-            optionsBuilder.UseSqlServer(connectionString);
-            return new SampleDbContext(optionsBuilder.Options);
-        });
-
-        // Register repository
-        serviceCollection.AddTransient<IProductRepository, ProductRepository>();
-    }
-    ```
-
-1. Flesh out the ``FunctionHandler` class.
+1. Flesh out the `FunctionHandler` class.
 
     ```csharp
     public async Task<Product> FunctionHandler(string input, ILambdaContext context)
@@ -137,12 +205,3 @@
     }
     ```
 
-## Create Database
-
-Open a command prompt and run the following two commands:
-
-```
-cd NetCoreLambda.EF
-dotnet ef migrations add initial
-dotnet ef database update
-```

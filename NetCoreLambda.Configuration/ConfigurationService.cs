@@ -2,11 +2,12 @@
 using Microsoft.Extensions.Configuration;
 using NetCoreLambda.Abstractions;
 
-namespace NetCoreLambda
+namespace NetCoreLambda.Configuration
 {
     public class ConfigurationService : IConfigurationService
     {
         public IEnvironmentService EnvService { get; }
+        public string CurrentDirectory { get; set; }
 
         public ConfigurationService(IEnvironmentService envService)
         {
@@ -15,8 +16,9 @@ namespace NetCoreLambda
 
         public IConfiguration GetConfiguration()
         {
+            CurrentDirectory = CurrentDirectory ?? Directory.GetCurrentDirectory();
             return new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
+                .SetBasePath(CurrentDirectory)
                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                 .AddJsonFile($"appsettings.{EnvService.EnvironmentName}.json", optional: true)
                 .AddEnvironmentVariables()

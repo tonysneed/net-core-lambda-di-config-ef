@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 
-namespace NetCoreLambda.EF.Migrations
+namespace NetCoreLambda.EF.Design.Migrations
 {
     public partial class initial : Migration
     {

@@ -13,16 +13,19 @@
   <ItemGroup>
     <PackageReference Include="Amazon.Lambda.Core" Version="1.0.0" />
     <PackageReference Include="Amazon.Lambda.Serialization.Json" Version="1.4.0" />
-    <!--<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="2.1.0" />-->
-    <PackageReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.App" Version="2.1.5" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\NetCoreLambda.Abstractions\NetCoreLambda.Abstractions.csproj" />
-    <ProjectReference Include="..\NetCoreLambda.EF\NetCoreLambda.EF.csproj" />
+    <ProjectReference Include="..\NetCoreLambda.Configuration\NetCoreLambda.Configuration.csproj" />
+    <ProjectReference Include="..\NetCoreLambda.DI\NetCoreLambda.DI.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <Content Update="appsettings.Development.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

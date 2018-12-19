@@ -1,4 +1,4 @@
-﻿namespace NetCoreLambda
+﻿namespace NetCoreLambda.Configuration
 {
     public static class Constants
     {

@@ -16,6 +16,6 @@
     "function-handler"     : "NetCoreLambda::NetCoreLambda.Function::FunctionHandler",
     "environment-variables" : "\"ASPNETCORE_ENVIRONMENT\"=\"Staging\";\"env1\"=\"val1\";\"env2\"=\"val2\"",
     "function-name"         : "NetCoreLambda",
-    "function-role"         : "arn:aws:iam::229130418844:role/aws-netcore-demo-DefaultFunctionRole-167PAFDM1ZB7O",
+    "function-role"         : "arn:aws:iam::779191825743:role/lambda_basic_execution",
     "tracing-mode"          : "PassThrough"
 }
