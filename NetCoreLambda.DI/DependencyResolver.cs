@@ -11,11 +11,13 @@ namespace NetCoreLambda.DI
     {
         public IServiceProvider ServiceProvider { get; }
         public string CurrentDirectory { get; set; }
+        public Action<IServiceCollection> RegisterServices { get; }
 
-        public DependencyResolver()
+        public DependencyResolver(Action<IServiceCollection> registerServices = null)
         {
             // Set up Dependency Injection
             var serviceCollection = new ServiceCollection();
+            RegisterServices = registerServices;
             ConfigureServices(serviceCollection);
             ServiceProvider = serviceCollection.BuildServiceProvider();
         }
@@ -40,8 +42,8 @@ namespace NetCoreLambda.DI
                 return new SampleDbContext(optionsBuilder.Options);
             });
 
-            // Register repository
-            services.AddTransient<IProductRepository, ProductRepository>();
+            // Register other services
+            RegisterServices?.Invoke(services);
         }
     }
 }
