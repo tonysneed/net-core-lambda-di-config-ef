@@ -8,6 +8,12 @@ Demonstrates how to create a Lambda Function that uses the repository pattern wi
     - https://dotnet.microsoft.com/download/archives
     - Select version matching what is supported by AWS Lambda.
 
+- Create a new Visual Studio solution and add a **global.json** file with the SDK version.
+    - Open a command prompt at the solution root.
+    - Enter and run: `dotnet new globaljson`
+    - Add an existing item to the solution and select the global.json file.
+    - Verify that the SDK version matches that which you previously installed.
+
 ## Create Database
 
 1. Set connection string in appsettings.json.
