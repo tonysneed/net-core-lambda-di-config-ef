@@ -85,49 +85,6 @@ Demonstrates how to create a Lambda Function that uses the repository pattern wi
     }
     ```
 
-1. Add a **NetCoreLambda.DI** .NET Standard 2.0 Class Library.
-    - Add a `DependencyResolver` class.
-
-    ```csharp
-    public class DependencyResolver
-    {
-        public IServiceProvider ServiceProvider { get; }
-        public string CurrentDirectory { get; set; }
-
-        public DependencyResolver()
-        {
-            // Set up Dependency Injection
-            var serviceCollection = new ServiceCollection();
-            ConfigureServices(serviceCollection);
-            ServiceProvider = serviceCollection.BuildServiceProvider();
-        }
-
-        private void ConfigureServices(IServiceCollection services)
-        {
-            // Register env and config services
-            services.AddTransient<IEnvironmentService, EnvironmentService>();
-            services.AddTransient<IConfigurationService, ConfigurationService>
-                (provider => new ConfigurationService(provider.GetService<IEnvironmentService>())
-                {
-                    CurrentDirectory = CurrentDirectory
-                });
-
-            // Register DbContext class
-            services.AddTransient(provider =>
-            {
-                var configService = provider.GetService<IConfigurationService>();
-                var connectionString = configService.GetConfiguration()[$"ConnectionStrings:{nameof(SampleDbContext)}"];
-                var optionsBuilder = new DbContextOptionsBuilder<SampleDbContext>();
-                optionsBuilder.UseSqlServer(connectionString, builder => builder.MigrationsAssembly("NetCoreLambda.EF.Design"));
-                return new SampleDbContext(optionsBuilder.Options);
-            });
-
-            // Register repository
-            services.AddTransient<IProductRepository, ProductRepository>();
-        }
-    }
-    ```
-
 1. Add a **NetCoreLambda.EF.Design** .NET Core Class Library version 2.1.
     - Add a `SampleDbContextFactory` class.
 
@@ -176,7 +133,52 @@ Demonstrates how to create a Lambda Function that uses the repository pattern wi
 1. Add a connection string to **appsettings.json** in the NetCore=Lambda project.
 
     ```json
-    "SampleDbContext": "Data Source=sample-instance.xxx.eu-west-1.rds.amazonaws.com;initial catalog=SampleDb;User Id=admin;Password=Pa$$w0rd; MultipleActiveResultSets=True"
+    "SampleDbContext": "Data Source=sample-instance.xxx.eu-west-1.rds.amazonaws.com;initial catalog=SampleDb;User Id=xxx;Password=xxx; MultipleActiveResultSets=True"
+    }
+    ```
+
+1. Add a **NetCoreLambda.DI** .NET Standard 2.0 Class Library.
+    - Add a `DependencyResolver` class.
+
+    ```csharp
+    public class DependencyResolver
+    {
+        public IServiceProvider ServiceProvider { get; }
+        public string CurrentDirectory { get; set; }
+        public Action<IServiceCollection> RegisterServices { get; }
+
+        public DependencyResolver(Action<IServiceCollection> registerServices = null)
+        {
+            // Set up Dependency Injection
+            var serviceCollection = new ServiceCollection();
+            RegisterServices = registerServices;
+            ConfigureServices(serviceCollection);
+            ServiceProvider = serviceCollection.BuildServiceProvider();
+        }
+
+        private void ConfigureServices(IServiceCollection services)
+        {
+            // Register env and config services
+            services.AddTransient<IEnvironmentService, EnvironmentService>();
+            services.AddTransient<IConfigurationService, ConfigurationService>
+                (provider => new ConfigurationService(provider.GetService<IEnvironmentService>())
+                {
+                    CurrentDirectory = CurrentDirectory
+                });
+
+            // Register DbContext class
+            services.AddTransient(provider =>
+            {
+                var configService = provider.GetService<IConfigurationService>();
+                var connectionString = configService.GetConfiguration().GetConnectionString(nameof(SampleDbContext));
+                var optionsBuilder = new DbContextOptionsBuilder<SampleDbContext>();
+                optionsBuilder.UseSqlServer(connectionString, builder => builder.MigrationsAssembly("NetCoreLambda.EF.Design"));
+                return new SampleDbContext(optionsBuilder.Options);
+            });
+
+            // Register other services
+            RegisterServices?.Invoke(services);
+        }
     }
     ```
 
@@ -189,7 +191,7 @@ Demonstrates how to create a Lambda Function that uses the repository pattern wi
     public Function()
     {
         // Get Configuration Service from DI system
-        var resolver = new DependencyResolver();
+        var resolver = new DependencyResolver(ConfigureServices);
         ProductRepository = resolver.GetService<IProductRepository>();
     }
 
@@ -197,6 +199,12 @@ Demonstrates how to create a Lambda Function that uses the repository pattern wi
     public Function(IProductRepository productRepository)
     {
         ProductRepository = productRepository;
+    }
+
+    // Register services with DI system
+    private void ConfigureServices(IServiceCollection services)
+    {
+        services.AddTransient<IProductRepository, ProductRepository>();
     }
     ```
 
