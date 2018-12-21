@@ -31,7 +31,7 @@ namespace NetCoreLambda
         }
 
         /// <summary>
-        /// A simple function that takes a string and does a ToUpper
+        /// A simple function that takes an id and returns a product.
         /// </summary>
         /// <param name="input"></param>
         /// <param name="context"></param>
